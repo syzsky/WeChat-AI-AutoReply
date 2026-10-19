@@ -39,6 +39,9 @@ MANIFEST
 wechat_config_dev.json
 wechat_config.json
 wechat_convo_map.json
+mir_config.json
+mir_bot.stop
+logs/
 *.pid
 *.log
 *.tmp

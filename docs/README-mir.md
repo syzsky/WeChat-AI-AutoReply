@@ -1,0 +1,84 @@
+# 传奇挂机（mir-bot 分支）
+
+在上游「微信 AI 自动回复」的**无痕窗口操作**底座上重写的传奇（Mir2 系）挂机框架。
+
+保留上游三条硬约束，替换掉业务层：
+
+| 上游能力 | 本分支用途 |
+|---|---|
+| PrintWindow 离屏抓图 | 游戏窗口被遮挡/挪到屏幕外照样读画面 |
+| AttachThreadInput 提权激活 | 需要键盘输入时短暂抢焦点，之后自动让出 |
+| PostMessage 点击（物理鼠标 0 移动） | 打怪、走位、点 NPC 全走窗口消息 |
+| RapidOCR 本地识别 | 读怪物名、物品名、死亡提示 |
+| OpenAI 兼容 AI 引擎 | 游戏内私聊自动回复（可选） |
+
+## 目录结构
+
+```
+core/                 通用底座（与游戏无关）
+├── win32api.py       窗口枚举 / 离屏挂载 / 抓图 / 消息注入
+├── vision.py         归一化裁剪 / 血条读数 / 色块检测 / 帧差
+├── ocr.py            RapidOCR 封装（整图 / 区域 / 找文本 / 读数字）
+├── llm.py            OpenAI 兼容客户端（含重试）
+├── config.py         JSON 配置 + 深合并 + 热重载
+└── logger.py         滚动日志
+
+games/
+├── base.py           GameAdapter 抽象（换游戏只实现这一层）
+└── mir2/
+    ├── layout.py     界面区域（归一化坐标，分辨率无关）
+    ├── reader.py     血/蓝/死亡/怪物/物品 读数
+    ├── state.py      状态机（纯逻辑，可单测）
+    └── adapter.py    决策 → 注入
+
+apps/
+├── mir_bot.py        无界面守护（主力）
+└── mir_gui.py        控制中心（看日志、改配置、起停）
+
+tools/snapshot.py     抓一张游戏窗口截图，用来量坐标
+tests/                20 个单测，不需要 Windows
+legacy/wechat/        上游微信实现，保留作参考
+```
+
+## 快速开始（Windows）
+
+```bat
+pip install -r requirements-mir.txt
+copy games\mir2\config.example.json mir_config.json
+:: 先量坐标
+python tools\snapshot.py
+:: 调试单帧
+python apps\mir_bot.py --dry-run --once
+:: 正式挂机
+python apps\mir_bot.py
+:: 或开控制中心
+python apps\mir_gui.py
+```
+
+## 配置要点（`mir_config.json`）
+
+| 键 | 说明 |
+|---|---|
+| `window_title_keywords` | 窗口标题关键词，默认 `["传奇","Mir","Legend"]` |
+| `layout` | 覆盖 `games/mir2/layout.py` 里的任意区域，如 `{"hp_bar": [0.05,0.90,0.29,0.92]}` |
+| `potion_hp_threshold` | 血量低于此比例喝红（0~1） |
+| `monster_names` | 要打的怪名，OCR 命中即点击 |
+| `item_names` | 要捡的物品名 |
+| `skill_interval` | 技能按键间隔秒数，0 = 关 |
+| `stuck_seconds` | 画面 N 秒无变化判定卡位，自动 ESC + 走位 |
+| `chat_reply_enabled` | 游戏内聊天 AI 回复开关 |
+
+配置改完**不用重启**，守护进程每轮热重载。
+
+## 决策优先级
+
+```
+死亡复活 → 喝红 → 喝蓝 → 打怪 → 捡物 → 放技能 → 防卡脱困 → 随机巡逻
+```
+
+## 已知边界
+
+1. **独占全屏（DirectX 独占）抓不到** —— 请用窗口化/无边框窗口模式；PrintWindow 抓不到时会自动退回屏幕截图。
+2. **部分反外挂会拦 PostMessage** —— 本框架不注入、不读内存、不改协议，但服务端仍可能判定异常操作频率，参数别调太激进。
+3. **坐标要校准** —— 默认布局按经典 1024×768 估算，第一次用必须 `tools/snapshot.py` 量一遍。
+4. **只在 Windows 跑** —— 单测可在任意平台跑（`python -m unittest discover -s tests`）。

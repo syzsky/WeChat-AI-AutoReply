@@ -1,5 +1,9 @@
 <div align="center">
 
+> **分支说明**：当前 `mir-bot` 分支已把工程改造成**传奇（Mir2 系）挂机框架**，
+> 微信实现保留在 `legacy/wechat/`，新架构见 [docs/README-mir.md](docs/README-mir.md)。
+> 需要原版微信功能请切回 `main`。
+
 # 🤖 WeChat-AI-AutoReply
 ### 微信 AI 自动回复 (Zero-Mouse & Off-Screen Edition)
 

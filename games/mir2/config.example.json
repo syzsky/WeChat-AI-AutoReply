@@ -1,0 +1,45 @@
+{
+  "game": "mir2",
+
+  "window_class_keywords": [],
+  "window_title_keywords": ["传奇", "Mir", "Legend"],
+  "exclude_titles": [],
+
+  "loop_interval": 0.35,
+  "min_action_gap": 0.15,
+  "click_hold_ms": 20,
+  "attack_interval": 0.45,
+
+  "potion_hp_threshold": 0.55,
+  "potion_mp_threshold": 0.25,
+  "hp_potion_key": "1",
+  "mp_potion_key": "2",
+  "use_mp_potion": true,
+  "revive_key": "",
+
+  "loot_key": "Z",
+  "skill_keys": ["F1", "F2"],
+  "skill_interval": 3.0,
+
+  "stuck_seconds": 8.0,
+  "max_hp": 0,
+  "ocr_hp_fallback": true,
+
+  "monster_names": ["鸡", "鹿", "稻草人", "半兽人", "骷髅"],
+  "item_names": ["金币", "药水", "装备"],
+
+  "layout": {},
+
+  "chat_reply_enabled": false,
+  "chat_trigger_prefix": "",
+  "chat_scan_interval": 3.0,
+
+  "llm": {
+    "api_key": "",
+    "api_base": "https://api.deepseek.com/v1",
+    "model": "deepseek-chat",
+    "temperature": 0.7,
+    "timeout": 30,
+    "system_prompt": "你是传奇游戏里的玩家，用简短口语回复游戏内私聊，不要暴露机器人身份，一次只回一句，不超过30字。"
+  }
+}
