@@ -63,6 +63,24 @@ class MirAdapter(GameAdapter):
         self.prev_img = img
         return obs
 
+    # ---------- 供 Traveler 等子模块调用的基础动作 ----------
+    def grab(self):
+        if not self.hwnd:
+            return None
+        return w32.capture(self.hwnd)
+
+    def click(self, x, y):
+        if not self.hwnd:
+            return False
+        return w32.click_client(self.hwnd, x, y, hold_ms=int(self.cfg.get("click_hold_ms", 20)))
+
+    def patrol(self, steps=1):
+        self._patrol(steps)
+
+    def travel_to(self, route: dict, timeout=25.0):
+        from games.mir2.travel import Traveler
+        return Traveler(self, self.log).travel_to(route, timeout=timeout)
+
     # ---------- 执行 ----------
     def execute(self, action: Action) -> bool:
         hwnd = self.hwnd

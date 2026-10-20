@@ -28,6 +28,13 @@
   "monster_names": ["鸡", "鹿", "稻草人", "半兽人", "骷髅"],
   "item_names": ["金币", "药水", "装备"],
 
+  "travel_route": {
+    "npc": "传送员",
+    "options": ["比奇省", "比奇城"],
+    "map": "比奇城"
+  },
+  "travel_timeout": 25,
+
   "layout": {},
 
   "chat_reply_enabled": false,

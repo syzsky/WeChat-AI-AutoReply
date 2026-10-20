@@ -51,6 +51,13 @@ def main():
         return 3
 
     log(f"开始挂机 game={data.get('game')} interval={data.get('loop_interval')}s")
+
+    # 启动时先按配置传送到挂机地图（可选）
+    route = data.get("travel_route") or {}
+    if route.get("npc") and not args.dry_run:
+        ok = adapter.travel_to(route, timeout=float(data.get("travel_timeout", 25)))
+        log(f"传送{'成功' if ok else '失败'}：{route.get('map') or route.get('options')}")
+
     started = time.time()
     last_stats = started
     frames = 0
