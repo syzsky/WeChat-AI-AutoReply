@@ -12,6 +12,16 @@
   "click_hold_ms": 20,
   "attack_interval": 0.45,
 
+  "jitter": 0.25,
+  "click_radius": 6,
+  "rest_every_minutes": 90,
+  "rest_minutes": 8,
+  "rest_jitter": 0.4,
+
+  "resupply_every_minutes": 0,
+  "resupply_route": {"npc": "商人", "options": ["购买", "药水"], "map": "比奇城"},
+  "grind_route": {"npc": "传送员", "options": ["比奇省", "比奇城"], "map": "比奇城"},
+
   "potion_hp_threshold": 0.55,
   "potion_mp_threshold": 0.25,
   "hp_potion_key": "1",

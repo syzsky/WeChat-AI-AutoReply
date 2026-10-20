@@ -70,6 +70,48 @@ python apps\mir_gui.py
 
 配置改完**不用重启**，守护进程每轮热重载。
 
+## 工作室模式（多开）
+
+一角色一进程，崩溃隔离，总控负责重启和汇总。
+
+```bat
+copy docs\studio_config.example.json studio_config.json
+python apps\studio.py --http 8765
+```
+
+`studio_config.json` 里每个角色一份 `overrides`，会和模板合并后生成到 `data/accounts/<name>.json`：
+
+```json
+{
+  "restart_delay": 5,
+  "max_restarts_per_hour": 5,
+  "accounts": [
+    {"name": "a1", "overrides": {"window_title_keywords": ["传奇1"]}},
+    {"name": "a2", "overrides": {"window_title_keywords": ["传奇2"], "window_pid": 12345}}
+  ]
+}
+```
+
+**四种能力**
+
+| 能力 | 实现 | 位置 |
+|---|---|---|
+| 多开隔离 | 每角色独立进程 + 独立配置/日志/指标 | `apps/studio.py` |
+| 崩溃自愈 | 退出自动重启，1 小时超 5 次停手 | `Account.supervise()` |
+| 状态汇总 | `data/studio_status.json` + `GET /status` | `Studio.status()` |
+| 行为限速 | 延迟抖动 ±25%、点击偏移 ±6px、定时休息 | `core/human.py` |
+
+**任务链**：挂机 → 到点补给（`resupply_every_minutes`）→ 回挂机图 → 循环。补给/回图失败会重试，连续 3 次放弃并原地挂机，避免死循环。
+
+**指标**：`data/metrics.db`（SQLite），每角色一张表空间，记 `attack/loot/potion/death/unstick/resupply`。查：
+
+```python
+from core.metrics import Metrics
+m = Metrics("data/metrics.db", "a1")
+print(m.totals(24))      # 最近 24 小时
+print(m.last_snapshot())
+```
+
 ## 窗口绑定
 
 绑定只是拿到窗口句柄 `hwnd`，不注入、不挂钩子。三种方式，优先级从高到低：

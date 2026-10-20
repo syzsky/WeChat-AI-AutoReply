@@ -41,7 +41,9 @@ wechat_config.json
 wechat_convo_map.json
 mir_config.json
 mir_bot.stop
+studio_config.json
 logs/
+data/
 *.pid
 *.log
 *.tmp

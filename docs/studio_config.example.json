@@ -1,0 +1,25 @@
+{
+  "_说明": "工作室总控配置。每个角色一个进程，overrides 会覆盖模板里同名字段。",
+  "restart_delay": 5,
+  "max_restarts_per_hour": 5,
+  "accounts": [
+    {
+      "name": "a1",
+      "overrides": {
+        "window_title_keywords": ["传奇1"],
+        "window_pid": 0,
+        "travel_route": {"npc": "传送员", "options": ["比奇省", "比奇城"], "map": "比奇城"},
+        "monster_names": ["鸡", "鹿", "半兽人"]
+      }
+    },
+    {
+      "name": "a2",
+      "overrides": {
+        "window_title_keywords": ["传奇2"],
+        "window_pid": 0,
+        "travel_route": {"npc": "传送员", "options": ["比奇省", "比奇城"], "map": "比奇城"},
+        "monster_names": ["鸡", "鹿", "半兽人"]
+      }
+    }
+  ]
+}
