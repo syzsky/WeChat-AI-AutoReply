@@ -31,14 +31,22 @@ class TaskState:
                 "return_failures": self.return_failures}
 
 
-def next_task(state: TaskState, cfg: dict, now=None) -> str:
-    """决定这一轮该干什么。纯函数，方便单测。"""
+def next_task(state: TaskState, cfg: dict, now=None, potions=None) -> str:
+    """决定这一轮该干什么。纯函数，方便单测。
+
+    potions: 背包剩余药水数，None 表示没读到（不参与判定）
+    """
     now = time.time() if now is None else now
     interval = float(cfg.get("resupply_every_minutes", 0) or 0) * 60
 
     # 补给中/回图中：由执行层推进，不在这里重判
     if state.task in (TASK_RESUPPLY, TASK_RETURN):
         return state.task
+
+    # 药水见底：立刻补给（优先级高于时间窗）
+    low = cfg.get("potion_low_threshold")
+    if potions is not None and low is not None and potions <= int(low):
+        return TASK_RESUPPLY
 
     if interval > 0 and (now - state.last_resupply) >= interval:
         return TASK_RESUPPLY
@@ -57,6 +65,7 @@ class StudioWorker:
         self.metrics = metrics
         self.log = log or adapter.log
         self.state = TaskState()
+        self._last_potions = None
 
     # ---------- 主入口 ----------
     def step(self, img):
@@ -68,7 +77,7 @@ class StudioWorker:
             _t.sleep(min(5.0, max(1.0, self.human.rest_remaining())))
             return None, None
 
-        task = next_task(self.state, self.cfg)
+        task = next_task(self.state, self.cfg, potions=self._last_potions)
         if task != self.state.task:
             self.log(f"任务切换 {self.state.task} → {task}")
             self.state.task = task
@@ -81,6 +90,7 @@ class StudioWorker:
             return None, None
 
         obs = self.adapter.observe(img)
+        self._last_potions = (obs.extra or {}).get("potions")
         action = self.adapter.decider.decide(obs)
         self._record(obs, action)
         return obs, action

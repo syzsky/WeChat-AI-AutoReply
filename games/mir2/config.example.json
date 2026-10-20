@@ -18,6 +18,30 @@
   "rest_minutes": 8,
   "rest_jitter": 0.4,
 
+  "schedule": {
+    "enabled": false,
+    "windows": ["08:00-23:30"],
+    "weekdays": [1, 2, 3, 4, 5, 6, 7]
+  },
+
+  "black_screen_seconds": 12,
+  "frozen_seconds": 20,
+  "death_loop_count": 3,
+  "no_progress_minutes": 20,
+
+  "potion_count_enabled": false,
+  "potion_keyword": "药",
+  "potion_low_threshold": 10,
+
+  "login_window_keywords": ["登录", "Login", "登陆"],
+  "account_name": "",
+  "account_password": "",
+  "account_label": "账号",
+  "password_label": "密码",
+  "login_button_words": ["登录", "进入游戏", "开始游戏"],
+  "login_panel": [0.2, 0.2, 0.8, 0.8],
+  "login_field_offset": 120,
+
   "resupply_every_minutes": 0,
   "resupply_route": {"npc": "商人", "options": ["购买", "药水"], "map": "比奇城"},
   "grind_route": {"npc": "传送员", "options": ["比奇省", "比奇城"], "map": "比奇城"},

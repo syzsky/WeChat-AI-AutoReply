@@ -14,11 +14,19 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import win32api as w32  # noqa: E402
+from core import ocr, schedule, vision  # noqa: E402
 from core.config import Config  # noqa: E402
+from core.health import (  # noqa: E402
+    ACTION_RECOVER, ACTION_REBIND, ACTION_RELOCATE, ACTION_RELOGIN, ACTION_UNSTICK,
+    HealthMonitor,
+)
 from core.human import Humanizer  # noqa: E402
+from core.lock import InstanceLock  # noqa: E402
 from core.logger import Logger  # noqa: E402
 from core.metrics import Metrics, write_status  # noqa: E402
+from games.mir2 import layout as lay  # noqa: E402
 from games.mir2.adapter import MirAdapter  # noqa: E402
+from games.mir2.relogin import ReloginFlow  # noqa: E402
 from games.mir2.worker import StudioWorker  # noqa: E402
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -34,6 +42,34 @@ def parse_args():
     p.add_argument("--dry-run", action="store_true", help="只观测不注入")
     p.add_argument("--seconds", type=float, default=0, help="运行时长，0=一直跑")
     return p.parse_args()
+
+
+def _handle_issues(issues, adapter, cfg, log):
+    """按故障类型处置；返回 True 表示本轮跳过正常逻辑。"""
+    for issue in issues:
+        log.warn(f"异常[{issue.code}] {issue.detail} → {issue.action}")
+        if issue.action == ACTION_REBIND:
+            adapter.hwnd = None
+            return True
+        if issue.action == ACTION_RECOVER:
+            if adapter.hwnd:
+                w32.press_key(adapter.hwnd, "ESC")
+            time.sleep(2.0)
+            return True
+        if issue.action == ACTION_UNSTICK:
+            adapter.patrol(steps=2)
+            time.sleep(0.5)
+            return True
+        if issue.action == ACTION_RELOCATE:
+            route = cfg.get("grind_route") or {}
+            if route.get("npc"):
+                adapter.travel_to(route)
+            return True
+        if issue.action == ACTION_RELOGIN:
+            ReloginFlow(cfg, log).run(timeout=90)
+            adapter.hwnd = None
+            return True
+    return False
 
 
 def main():
@@ -58,7 +94,13 @@ def main():
     metrics = Metrics(os.path.join(BASE_DIR, "data", "metrics.db"), acct)
     human = Humanizer(cfg.data)
     worker = StudioWorker(adapter, cfg.data, human=human, metrics=metrics, log=log)
+    health = HealthMonitor(cfg.data)
     status_path = os.path.join(BASE_DIR, "data", f"status_{acct}.json")
+
+    lock = InstanceLock(os.path.join(BASE_DIR, "data", "locks", f"{acct}.lock"))
+    if not lock.acquire():
+        log.error(f"角色 {acct} 已有实例在运行，退出")
+        return 4
 
     log(f"开始挂机 account={acct} interval={cfg.get('loop_interval')}s")
 
@@ -84,9 +126,17 @@ def main():
             if args.seconds and time.time() - started > args.seconds:
                 break
 
+            if not schedule.is_active(cfg.data):
+                wait_min = schedule.next_start_minutes(cfg.data)
+                log(f"不在挂机时段，等待 {wait_min} 分钟")
+                time.sleep(min(300, max(60, wait_min * 60)))
+                continue
+
             hwnd = adapter.ensure_window()
             if not hwnd:
-                log.warn("窗口丢失，3 秒后重试")
+                log.warn("窗口丢失，尝试重登")
+                if not args.dry_run and ReloginFlow(cfg.data, log).run(timeout=60):
+                    adapter.hwnd = None
                 time.sleep(3)
                 continue
 
@@ -96,7 +146,32 @@ def main():
                 time.sleep(1)
                 continue
 
+            # 异常诊断：黑屏/冻结/连死/断线/无进展
+            notice = ""
+            if int(time.time()) % 3 == 0:
+                try:
+                    hits = ocr.ocr_region(img, lay.get_layout(cfg.get("layout"))["notice"], 0.45)
+                    notice = " ".join(t for t, _b, _s in hits)
+                except Exception:
+                    notice = ""
+            issues = health.feed(
+                window_ok=True,
+                dark=vision.region_is_dark(img, lay.get_layout(cfg.get("layout"))["notice"]),
+                changed=bool(getattr(worker, "_last_changed", True)),
+                dead=False,
+                notice_text=notice,
+            )
+            if issues and not args.dry_run:
+                if _handle_issues(issues, adapter, cfg.data, log):
+                    metrics.event("health", len(issues))
+                    continue
+
             obs, action = worker.step(img)
+            worker._last_changed = obs.screen_changed if obs else True
+            if obs and (obs.monsters or obs.items):
+                health.note_progress()
+            if obs and obs.dead:
+                health.feed(dead=True)
 
             if action is not None and not args.dry_run:
                 adapter.execute(action)
@@ -134,6 +209,7 @@ def main():
                                    "pid": os.getpid(),
                                    "last_update": time.strftime("%Y-%m-%d %H:%M:%S")})
         metrics.close()
+        lock.release()
     return 0
 
 

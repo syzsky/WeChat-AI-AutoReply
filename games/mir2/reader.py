@@ -25,6 +25,7 @@ class MirReader:
         dead = self._is_dead(img, hp)
         monsters = self._find_monsters(img)
         items = self._find_items(img)
+        potions = self._count_potions(img)
 
         changed = True
         if prev_img is not None:
@@ -32,7 +33,8 @@ class MirReader:
 
         return Observation(hp=hp, mp=mp, dead=dead, monsters=monsters,
                            items=items, screen_changed=changed,
-                           stuck_seconds=stuck_seconds)
+                           stuck_seconds=stuck_seconds,
+                           extra={"potions": potions})
 
     # ---------- 内部 ----------
     def _hp_from_text(self, img):
@@ -76,3 +78,25 @@ class MirReader:
             cx, cy = lay.clamp_to_view(cx, cy, self.layout["view"], w, h)
             out.append({"name": text, "x": cx, "y": cy, "score": score})
         return out
+
+    def _count_potions(self, img):
+        """从背包区域读药水数量，读不到返回 None。"""
+        if not self.cfg.get("potion_count_enabled"):
+            return None
+        region = self.layout.get("inventory")
+        keyword = self.cfg.get("potion_keyword", "药")
+        if not region:
+            return None
+        try:
+            texts = ocr.ocr_region(img, region, min_score=0.4)
+        except Exception:
+            return None
+        import re
+        best = None
+        for text, _box, _score in texts:
+            if keyword in text:
+                nums = re.findall(r"\d+", text)
+                if nums:
+                    n = int(nums[-1])
+                    best = n if best is None else min(best, n)
+        return best

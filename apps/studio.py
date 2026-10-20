@@ -138,17 +138,28 @@ class Account:
 
 def make_handler(studio):
     class Handler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            if self.path not in ("/", "/status"):
-                self.send_response(404)
-                self.end_headers()
-                return
-            body = json.dumps(studio.status(), ensure_ascii=False, indent=2).encode()
-            self.send_response(200)
+        def _json(self, obj, code=200):
+            body = json.dumps(obj, ensure_ascii=False, indent=2).encode()
+            self.send_response(code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+
+        def do_GET(self):
+            if self.path in ("/", "/status"):
+                self._json(studio.status())
+            else:
+                self._json({"error": "not found"}, 404)
+
+        def do_POST(self):
+            # 只允许本机控制：/start/<name> /stop/<name> /start_all /stop_all
+            parts = [p for p in self.path.strip("/").split("/") if p]
+            if not parts:
+                self._json({"error": "empty"}, 400)
+                return
+            result = studio.control(parts[0], parts[1] if len(parts) > 1 else "")
+            self._json(result, 200 if result.get("ok") else 400)
 
         def log_message(self, *args):
             pass
@@ -183,11 +194,32 @@ class Studio:
 
     def start_all(self):
         for a in self.accounts:
+            a.stopped = False
             a.start()
 
     def stop_all(self):
         for a in self.accounts:
             a.stop()
+
+    def control(self, action: str, name: str = "") -> dict:
+        """控制入口：HTTP 与本地调用共用，返回结果字典。"""
+        if action == "start_all":
+            self.start_all()
+            return {"ok": True, "action": "start_all"}
+        if action == "stop_all":
+            self.stop_all()
+            return {"ok": True, "action": "stop_all"}
+        if action in ("start", "stop"):
+            acct = next((a for a in self.accounts if a.name == name), None)
+            if not acct:
+                return {"ok": False, "error": f"no such account: {name}"}
+            if action == "start":
+                acct.stopped = False
+                acct.start()
+            else:
+                acct.stop()
+            return {"ok": True, "account": name, "action": action}
+        return {"ok": False, "error": f"bad command: {action}"}
 
     def status(self):
         return {
