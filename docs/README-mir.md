@@ -70,6 +70,41 @@ python apps\mir_gui.py
 
 配置改完**不用重启**，守护进程每轮热重载。
 
+## 窗口绑定
+
+绑定只是拿到窗口句柄 `hwnd`，不注入、不挂钩子。三种方式，优先级从高到低：
+
+| 方式 | 配置键 | 优点 | 缺点 |
+|---|---|---|---|
+| 句柄 | `window_hwnd` | 最精确，多开也不会绑错 | 重启游戏就失效 |
+| 进程 | `window_pid` | 多开时最稳 | 重启游戏就失效 |
+| 关键词 | `window_title_keywords` / `window_class_keywords` | 长期有效 | 标题相似时会绑错 |
+
+先用清单工具看清楚有哪些窗口：
+
+```bat
+python tools\window_list.py
+python tools\window_list.py --filter 传奇
+```
+
+输出每行的 `hwnd / pid / class / title`，挑游戏那一行：
+
+```
+      hwnd     pid       client  process             class / title
+    131082    4321     1024x768  legend.exe          TApplication | 传奇-比奇省
+```
+
+然后把关键词写进配置（推荐，不用每次改）：
+
+```json
+"window_title_keywords": ["传奇"],
+"window_class_keywords": ["TApplication"],
+"window_hwnd": 0,
+"window_pid": 0
+```
+
+`hwnd`/`pid` 填 0 表示不启用。程序每轮都会 `IsWindow()` 校验句柄，游戏重开就自动重新找。
+
 ## NPC 传送（进图）
 
 传奇的传送没有可读协议，只能照 UI 走：**点 NPC → 弹对话窗 → 点选项**。

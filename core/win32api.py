@@ -95,6 +95,44 @@ def find_window(class_keywords=(), title_keywords=(), exclude_titles=()):
     return None, None, None
 
 
+def pid_of(hwnd):
+    """窗口所属进程 PID。"""
+    _require_windows()
+    pid = wintypes.DWORD()
+    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    return int(pid.value)
+
+
+def is_valid(hwnd) -> bool:
+    """句柄是否还有效（窗口没被关掉）。"""
+    if not IS_WINDOWS or not hwnd:
+        return False
+    try:
+        return bool(user32.IsWindow(hwnd))
+    except Exception:
+        return False
+
+
+def find_window_by_pid(pid):
+    """按进程 PID 找它的主窗口（多开时最稳的定位方式）。"""
+    _require_windows()
+    out = []
+    for hwnd, cls, title in list_windows():
+        if pid_of(hwnd) == int(pid) and title:
+            out.append((hwnd, cls, title))
+    return out[0] if out else (None, None, None)
+
+
+def process_name(pid):
+    """PID → 进程名（找不到返回空串）。"""
+    _require_windows()
+    try:
+        import psutil
+        return psutil.Process(int(pid)).name()
+    except Exception:
+        return ""
+
+
 def window_rect(hwnd):
     """返回 (left, top, right, bottom)。"""
     _require_windows()

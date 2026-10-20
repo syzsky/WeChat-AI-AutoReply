@@ -33,6 +33,28 @@ class MirAdapter(GameAdapter):
 
     # ---------- 窗口 ----------
     def find_window(self):
+        """三种绑定方式，优先级：hwnd > pid > 类名/标题关键词。"""
+        # 1) 直接指定句柄（最精确，重启游戏后失效）
+        pinned = self.cfg.get("window_hwnd")
+        if pinned and w32.is_valid(int(pinned)):
+            _, cls, title = next(
+                ((h, c, t) for h, c, t in w32.list_windows() if h == int(pinned)),
+                (pinned, "", ""))
+            self.hwnd = int(pinned)
+            self.log(f"已绑定窗口 hwnd={self.hwnd}（配置指定）class={cls} title={title}")
+            return self.hwnd
+
+        # 2) 按进程 PID（多开时最稳，重启游戏后需更新）
+        pid = self.cfg.get("window_pid")
+        if pid:
+            hwnd, cls, title = w32.find_window_by_pid(int(pid))
+            if hwnd:
+                self.hwnd = hwnd
+                self.log(f"已绑定窗口 hwnd={hwnd} pid={pid} class={cls} title={title}")
+                return hwnd
+            self.log(f"配置的 pid={pid} 没找到窗口，回退到关键词匹配")
+
+        # 3) 按类名/标题关键词（默认，最省事）
         hwnd, cls, title = w32.find_window(
             class_keywords=self.cfg.get("window_class_keywords") or [],
             title_keywords=self.cfg.get("window_title_keywords") or ["传奇", "Mir"],
@@ -40,16 +62,12 @@ class MirAdapter(GameAdapter):
         )
         self.hwnd = hwnd
         if hwnd:
-            self.log(f"已绑定窗口 hwnd={hwnd} class={cls} title={title}")
+            self.log(f"已绑定窗口 hwnd={hwnd} class={cls} title={title} pid={w32.pid_of(hwnd)}")
         return hwnd
 
     def ensure_window(self):
-        if self.hwnd and w32.IS_WINDOWS:
-            try:
-                if w32.user32.IsWindow(self.hwnd):
-                    return self.hwnd
-            except Exception:
-                pass
+        if self.hwnd and w32.is_valid(self.hwnd):
+            return self.hwnd
         return self.find_window()
 
     # ---------- 观测 ----------

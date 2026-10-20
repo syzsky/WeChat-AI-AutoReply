@@ -3,6 +3,8 @@
 
   "window_class_keywords": [],
   "window_title_keywords": ["传奇", "Mir", "Legend"],
+  "window_hwnd": 0,
+  "window_pid": 0,
   "exclude_titles": [],
 
   "loop_interval": 0.35,
